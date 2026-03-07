@@ -1,0 +1,115 @@
+site_name: TepConfina Docs
+site_description: Documentacao Tecnica do TepConfina - Sistema de Gestao de Confinamento Bovino
+site_url: https://tecnoepec.github.io/tepconfina-docs/
+repo_url: https://github.com/TecnoePec/tepconfina-docs
+repo_name: TecnoePec/tepconfina-docs
+
+theme:
+  name: material
+  language: pt-BR
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: green
+      toggle:
+        icon: material/brightness-7
+        name: Modo escuro
+    - scheme: slate
+      primary: blue grey
+      accent: green
+      toggle:
+        icon: material/brightness-4
+        name: Modo claro
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search:
+      lang: pt
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Inicio: index.md
+  - Arquitetura:
+    - Visao Geral: arquitetura/visao-geral.md
+    - Backend: arquitetura/backend.md
+    - Frontend: arquitetura/frontend.md
+    - Mobile: arquitetura/mobile.md
+    - Decisoes Tecnicas: arquitetura/decisoes-tecnicas.md
+  - API Reference:
+    - Autenticacao: api/autenticacao.md
+    - Lotes: api/lotes.md
+    - Animais: api/animais.md
+    - Pesagens: api/pesagens.md
+    - Financeiro: api/financeiro.md
+    - Mercado: api/mercado.md
+    - Racoes: api/racoes.md
+    - Medicamentos: api/medicamentos.md
+    - Usuarios: api/usuarios.md
+    - Notificacoes: api/notificacoes.md
+  - Guias:
+    - Setup Backend: guias/setup-backend.md
+    - Setup Frontend: guias/setup-frontend.md
+    - Setup Mobile: guias/setup-mobile.md
+    - Docker: guias/docker.md
+    - Contribuicao: guias/contribuicao.md
+  - Deploy:
+    - CI/CD: deploy/ci-cd.md
+    - AWS: deploy/aws.md
+    - Terraform: deploy/terraform.md
+    - Migrations: deploy/migrations.md
+    - Rollback: deploy/rollback.md
+  - Dominio:
+    - Entidades: dominio/entidades.md
+    - Regras de Negocio: dominio/regras-negocio.md
+    - Glossario: dominio/glossario.md
+  - Seguranca:
+    - Autenticacao: seguranca/autenticacao.md
+    - Multi-tenancy: seguranca/multi-tenancy.md
+    - Rate Limiting: seguranca/rate-limiting.md
+    - Auditoria: seguranca/auditoria.md
+  - Observabilidade:
+    - OpenTelemetry: observabilidade/opentelemetry.md
+    - CloudWatch: observabilidade/cloudwatch.md
+    - Logs: observabilidade/logs.md
+  - Testes:
+    - Backend: testes/backend.md
+    - Frontend: testes/frontend.md
+    - Mobile: testes/mobile.md
+    - Load Testing: testes/load-testing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/TecnoePec
+      name: TecnoePec no GitHub

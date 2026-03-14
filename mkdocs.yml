@@ -77,7 +77,12 @@ nav:
     - Medicamentos: api/medicamentos.md
     - Usuarios: api/usuarios.md
     - Notificacoes: api/notificacoes.md
+    - Protocolos Sanitarios: api/protocolos-sanitarios.md
+    - Importacao Excel: api/importacao.md
+    - Auditoria: api/auditoria.md
+    - Relatorios: api/relatorios.md
   - Guias:
+    - Manual do Usuario: guias/manual-usuario.md
     - Setup Backend: guias/setup-backend.md
     - Setup Frontend: guias/setup-frontend.md
     - Setup Mobile: guias/setup-mobile.md

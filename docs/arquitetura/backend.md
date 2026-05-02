@@ -51,9 +51,13 @@ O nucleo do sistema contem as **16 entidades** de dominio, sem dependencias exte
 | `Pesagem`         | Registro de pesagem com peso e data           |
 | `Racao`           | Formulacao de racao com ingredientes          |
 | `Trato`           | Fornecimento diario de racao ao lote          |
-| `PrecoMercado`    | Cotacao de arroba do boi gordo                |
+| `PrecoMercado`    | Cotacao de arroba (legacy, alimenta dashboard) |
+| `MarketContract`  | Contratos B3 disponíveis (ex: `BGI1!`, `BGIK26`) |
+| `MarketQuote`     | Cotação atual por contrato (provider-agnóstico) |
+| `MarketCandle`    | Candle OHLC para gráfico (timeframe + contrato) |
 | `Produtor`        | Proprietario dos animais                      |
 | `Compra`          | Transacao de compra de animais                |
+| `CompraLote`      | Múltiplas compras por lote (rateio proporcional por animal) |
 | `Venda`           | Transacao de venda de animais                 |
 | `CustoOperacional`| Custos fixos e variaveis do confinamento      |
 | `Alerta`          | Alerta automatico baseado em regras           |
@@ -111,7 +115,8 @@ O `AppDbContext` configura:
 |:-------------------------|:--------------|:---------------------------------------|
 | `Repository<T>`          | Generico      | CRUD basico para todas as entidades    |
 | `LoteRepository`         | Especializado | Queries com includes e KPIs            |
-| `PrecoMercadoRepository` | Especializado | Cotacoes com filtros por data/praca    |
+| `PrecoMercadoRepository` | Especializado | Cotacoes legacy (dashboard)            |
+| `MarketRepository`       | Especializado | Quotes/Candles/Contracts com upsert    |
 | `AnimalRepository`       | Especializado | Queries com historico de pesagens      |
 
 ### Redis Cache
@@ -142,7 +147,8 @@ Os **17 controllers** seguem o padrao RESTful com versionamento via URL (`/api/v
 | `ComprasController`     | 4         | Registro de compras              |
 | `VendasController`      | 4         | Registro de vendas               |
 | `CustosController`      | 4         | Gestao de custos operacionais    |
-| `PrecoMercadoController`| 3         | Cotacoes de mercado              |
+| `MarketController`      | 5         | Cotações/candles via provider ativo (TradingView) |
+| `PrecoMercadoController`| 3         | Cotacoes legacy (dashboard)      |
 | `AlertasController`     | 4         | Gestao de alertas                |
 | `NotificacoesController`| 3         | Listagem e marcacao como lida    |
 | `DashboardController`   | 3         | Metricas consolidadas            |
@@ -203,6 +209,69 @@ public static class DependencyInjection
     }
 }
 ```
+
+---
+
+## Pipeline de Market Data
+
+A ingestão de cotações usa o padrão **Provider + Background Hosted Service**, com abstração `IMarketDataProvider` para troca a quente entre fornecedores.
+
+### Componentes
+
+| Componente | Tipo | Função |
+|-----------|------|--------|
+| `IMarketDataProvider` | Interface | Contrato (GetContracts, GetLatestQuote, GetCandles, HealthCheck) |
+| `TradingViewMarketDataProvider` | Implementação atual | HTTP para sidecar Node `tv-scraper` (porta 3001 na task ECS) |
+| `BrapiMarketDataProvider` | Implementação | Fallback BBOI11 (cota do ETF, não é a arroba) |
+| `MockMarketDataProvider` | Implementação | Dados sintéticos para dev local |
+| `MarketIngestionHostedService` | BackgroundService | Roda a cada `MarketData:SyncIntervalSeconds` (300s default) |
+| `MarketRepository` | Repositório | Upsert idempotente em `MarketContract`, `MarketQuote`, `MarketCandle` |
+| `MarketQueryService` | Application service | Consultas para o `MarketController` |
+
+### Fluxo
+
+```mermaid
+graph LR
+    TV[TradingView WebSocket] -->|@mathieuc/tradingview| SIDECAR[tv-scraper Node :3001]
+    SIDECAR -->|HTTP /candles /quote| PROVIDER[TradingViewMarketDataProvider]
+    PROVIDER --> INGEST[MarketIngestionHostedService 5min]
+    INGEST --> REPO[MarketRepository]
+    REPO --> DB[(MarketCandles + MarketQuotes + PrecosMercado)]
+    DB --> QUERY[MarketQueryService]
+    QUERY --> CTRL[MarketController]
+```
+
+### Sidecar `tv-scraper` (Node.js)
+
+Localizado em [`scrapers/tv/`](https://github.com/TecnoePec/tepconfina-api/tree/main/scrapers/tv), roda como **segundo container na task ECS** da API (`essential=false`).
+
+- **Imagem:** `public.ecr.aws/docker/library/node:20-alpine` (mirror ECR Public para evitar rate-limit Docker Hub)
+- **Endpoints expostos:** `/health`, `/quote?symbol=...`, `/candles?symbol=...&timeframe=...&limit=...`
+- **Comunicação API → sidecar:** `http://localhost:3001` (network mode `awsvpc` compartilha interface)
+- **Healthcheck:** wget `/health` a cada 30s
+- **Build:** mesmo CodePipeline da API; `buildspec.yml` builda 2 imagens e atualiza task def com ambos containers
+
+!!! warning "Risco de protocolo TradingView"
+    A biblioteca `@mathieuc/tradingview` faz reverse engineering do WebSocket interno da TV. Quando a TV muda o protocolo, a lib pode ficar fora por dias até receber patch. Caminho de saída: contratar **Cedro Technologies** (R$ 440/mês) e trocar o provider — frontend e schema não mudam.
+
+### Configuração
+
+```json
+"MarketData": {
+  "Provider": "tradingview",          // tradingview | brapi | stonex | mock
+  "SyncIntervalSeconds": 300,
+  "ActiveContracts": [ "BGI1!" ],     // contratos puxados a cada ciclo
+  "TradingView": {
+    "SidecarUrl": "http://localhost:3001"
+  },
+  "Brapi": {
+    "ApiBaseUrl": "https://brapi.dev",
+    "ApiToken": ""                    // do Secrets Manager
+  }
+}
+```
+
+A troca de provider é zero-downtime: edita env var `MarketData__Provider` na task def e força novo deployment.
 
 ---
 

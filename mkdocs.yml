@@ -83,6 +83,7 @@ nav:
     - Relatorios: api/relatorios.md
   - Guias:
     - Manual do Usuario: guias/manual-usuario.md
+    - Funcionalidades Avancadas: guias/funcionalidades-avancadas.md
     - Setup Backend: guias/setup-backend.md
     - Setup Frontend: guias/setup-frontend.md
     - Setup Mobile: guias/setup-mobile.md

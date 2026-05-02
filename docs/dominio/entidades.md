@@ -154,17 +154,95 @@ Cadastro de produtores rurais.
 | Cidade    | `string` | Cidade                                   |
 | Estado    | `string` | UF do estado                             |
 
+## CompraLote
+
+Múltiplas compras vinculadas a um mesmo lote, com rateio proporcional do custo por animal. Permite que um lote seja formado por várias entradas em datas/preços diferentes.
+
+| Campo            | Tipo       | Descricao                                 |
+|------------------|------------|-------------------------------------------|
+| LoteId           | `Guid`     | Referência ao lote                        |
+| DataCompra       | `DateTime` | Data da compra                            |
+| QuantidadeAnimais| `int`      | Animais comprados nesta operação         |
+| PesoTotal        | `decimal`  | Peso total dos animais comprados (kg)     |
+| ValorTotal       | `decimal`  | Valor total pago (R$)                     |
+| ValorCabeca      | `decimal`  | Valor por cabeça (R$)                     |
+| ValorArroba      | `decimal`  | Valor por arroba (R$)                     |
+| Vendedor         | `string?`  | Nome do vendedor                          |
+| Frete            | `decimal?` | Valor do frete (R$)                       |
+| Observacoes      | `string?`  | Observações                               |
+
+## CustoAnimal
+
+Custo individual rateado por animal a partir das CompraLotes do lote (proporcional ao peso de entrada). Permite calcular margem real de cada animal vendido.
+
+| Campo               | Tipo      | Descricao                              |
+|---------------------|-----------|----------------------------------------|
+| AnimalId            | `Guid`    | Referência ao animal                   |
+| LoteId              | `Guid`    | Referência ao lote                     |
+| CustoCompra         | `decimal` | Custo de aquisição rateado (R$)        |
+| CustoOperacionalAcc | `decimal` | Acumulado de ração+med+suplementos+etc |
+
 ## PrecoMercado
 
-Cotacoes de mercado de commodities pecuarias.
+Tabela de cotações **legacy** que alimenta os cards de preço do dashboard (Preço atual, Média 7d, Média 30d). 1 registro por dia/fonte.
 
-| Campo    | Tipo       | Descricao                                |
-|----------|------------|------------------------------------------|
-| Fonte    | `string`   | Fonte da cotacao (CEPEA, B3)             |
-| Produto  | `string`   | Tipo de produto (Boi Gordo, Bezerro)     |
-| Preco    | `decimal`  | Preco da arroba (R$)                     |
-| Data     | `DateTime` | Data da cotacao                          |
-| Variacao | `decimal`  | Variacao percentual em relacao ao anterior|
+| Campo               | Tipo       | Descricao                                  |
+|---------------------|------------|--------------------------------------------|
+| Fonte               | `string`   | `TRADINGVIEW`, `BRAPI`, `MANUAL` (legacy: `CEPEA`, `B3`) |
+| Indice              | `string`   | Símbolo do contrato (`BGI1!`, `BBOI11`, etc) |
+| PrecoArroba         | `decimal`  | Preço (R$) — semântica varia por fonte    |
+| Data                | `DateTime` | Data da cotação                            |
+| Variacao            | `decimal?` | Variação absoluta vs. anterior             |
+| VariacaoPercentual  | `decimal?` | Variação percentual                        |
+
+!!! warning "Semântica do PrecoArroba"
+    Quando `Fonte=TRADINGVIEW`/`Indice=BGI1!`, o valor é o preço **real da arroba** (~R$ 360). Quando `Fonte=BRAPI`/`Indice=BBOI11`, é a cota do **ETF** (~R$ 11), não a arroba. O frontend trata isso e exibe label apropriado.
+
+## MarketContract
+
+Contratos disponíveis no provider ativo. Sincronizado a cada ciclo do `MarketIngestionHostedService`.
+
+| Campo          | Tipo        | Descricao                                |
+|----------------|-------------|------------------------------------------|
+| Symbol         | `string`    | Símbolo genérico (`BOI`)                 |
+| ContractCode   | `string`    | Código do contrato (`BGI1!`, `BGIK26`)   |
+| Description    | `string?`   | Descrição amigável                       |
+| ExpirationDate | `DateTime?` | Vencimento (null para contratos contínuos) |
+| IsActive       | `bool`      | Se está sendo coletado                   |
+
+## MarketQuote
+
+Cotação atual por contrato. Provider-agnóstico (campo `Source` indica origem).
+
+| Campo            | Tipo       | Descricao                                   |
+|------------------|------------|---------------------------------------------|
+| Symbol           | `string`   | Símbolo (`BOI`)                             |
+| ContractCode     | `string?`  | Código do contrato                          |
+| Price            | `decimal`  | Último preço                                |
+| OpenPrice        | `decimal?` | Abertura do dia                             |
+| HighPrice        | `decimal?` | Máxima do dia                               |
+| LowPrice         | `decimal?` | Mínima do dia                               |
+| VariationPercent | `decimal?` | Variação % vs. fechamento anterior          |
+| Volume           | `decimal?` | Volume                                      |
+| Source           | `string`   | `tradingview`, `brapi`, `stonex`, `mock`    |
+| QuoteTimestamp   | `DateTime` | Timestamp da coleta                         |
+
+## MarketCandle
+
+Candle OHLC para gráfico. Chave única: `Symbol + ContractCode + Timeframe + CandleTime`.
+
+| Campo        | Tipo       | Descricao                                  |
+|--------------|------------|--------------------------------------------|
+| Symbol       | `string`   | Símbolo (`BOI`)                            |
+| ContractCode | `string?`  | Código do contrato                         |
+| Timeframe    | `string`   | `1m`, `5m`, `15m`, `1h`, `4h`, `1d`, `1w` |
+| Open         | `decimal`  | Abertura                                   |
+| High         | `decimal`  | Máxima                                     |
+| Low          | `decimal`  | Mínima                                     |
+| Close        | `decimal`  | Fechamento                                 |
+| Volume       | `decimal?` | Volume                                     |
+| Source       | `string`   | Provider que coletou                       |
+| CandleTime   | `DateTime` | Início do candle                           |
 
 ## User
 
@@ -228,3 +306,148 @@ Tokens de dispositivos moveis para push notifications.
 | UserId   | `Guid`   | Referencia ao usuario                    |
 | Token    | `string` | Token FCM do dispositivo                 |
 | Platform | `string` | Plataforma (Android, iOS)                |
+
+---
+
+## Entidades de operação ampliada
+
+### Suplemento e ConsumoSuplemento
+
+Suplementos minerais/vitamínicos cadastrados como insumos separados da ração principal.
+
+**Suplemento**
+
+| Campo       | Tipo      | Descricao                                |
+|-------------|-----------|------------------------------------------|
+| Nome        | `string`  | Nome do suplemento                       |
+| Tipo        | `string`  | Mineral, Vitamina, Aditivo               |
+| Fornecedor  | `string?` | Fornecedor                               |
+| PrecoUnitarioKg | `decimal` | Custo por kg (R$)                    |
+
+**ConsumoSuplemento**
+
+| Campo        | Tipo       | Descricao                              |
+|--------------|------------|----------------------------------------|
+| LoteId       | `Guid`     | Lote                                   |
+| SuplementoId | `Guid`     | Suplemento                             |
+| DataConsumo  | `DateTime` | Data                                   |
+| QuantidadeKg | `decimal`  | Quantidade consumida                   |
+
+### Arrendamento
+
+Custo de pastagem ou área de confinamento arrendada.
+
+| Campo           | Tipo       | Descricao                              |
+|-----------------|------------|----------------------------------------|
+| LoteId          | `Guid`     | Lote                                   |
+| Proprietario    | `string`   | Nome do proprietário                   |
+| DataInicio      | `DateTime` | Início do contrato                     |
+| DataFim         | `DateTime` | Fim do contrato                        |
+| ValorMensal     | `decimal`  | Valor mensal pago (R$)                 |
+| ValorTotal      | `decimal`  | Valor total acumulado (R$)             |
+| Observacoes     | `string?`  | Detalhes do contrato                   |
+
+### EstoqueInsumo
+
+Controle de estoque para ração, suplementos e medicamentos.
+
+| Campo        | Tipo       | Descricao                              |
+|--------------|------------|----------------------------------------|
+| Nome         | `string`   | Nome do insumo                         |
+| Categoria    | `string`   | `Racao`, `Suplemento`, `Medicamento`   |
+| EstoqueAtual | `decimal`  | Quantidade atual em estoque            |
+| Unidade      | `string`   | `kg`, `g`, `un`, `L`                   |
+| EstoqueMinimo| `decimal?` | Disparo de alerta quando abaixo        |
+| PrecoUltimaCompra | `decimal?` | Custo de referência               |
+
+### OutrosGastos
+
+Despesas operacionais diversas (frete, energia, mão de obra, etc).
+
+| Campo       | Tipo       | Descricao                              |
+|-------------|------------|----------------------------------------|
+| LoteId      | `Guid?`    | Lote (null para custo geral do tenant) |
+| Categoria   | `string`   | Frete, Energia, MaoDeObra, etc         |
+| Descricao   | `string`   | Descrição da despesa                   |
+| Valor       | `decimal`  | Valor (R$)                             |
+| DataDespesa | `DateTime` | Data                                   |
+
+### ProtocoloSanitario e AplicacaoProtocolo
+
+Calendário sanitário recorrente por lote (ex: vacinação a cada 60 dias).
+
+**ProtocoloSanitario**
+
+| Campo               | Tipo      | Descricao                              |
+|---------------------|-----------|----------------------------------------|
+| Nome                | `string`  | Nome do protocolo                      |
+| Tipo                | `string`  | Vacina, Vermífugo, Mineral, etc        |
+| FrequenciaDias      | `int`     | A cada N dias                          |
+| DiasAposEntrada     | `int?`    | Primeira aplicação após entrada        |
+
+**AplicacaoProtocolo**
+
+| Campo          | Tipo       | Descricao                              |
+|----------------|------------|----------------------------------------|
+| LoteId         | `Guid`     | Lote                                   |
+| ProtocoloId    | `Guid`     | Protocolo aplicado                     |
+| DataAplicacao  | `DateTime` | Data efetiva                           |
+| QuantidadeAnimais | `int`   | Animais que receberam                  |
+| ValorTotal     | `decimal`  | Custo total (R$)                       |
+| Observacoes    | `string?`  | Reações, lote do produto, etc          |
+
+### ConferenciaVisual
+
+Resultado de análise de imagem do lote via Claude Vision (BCS — Body Condition Score) e detector TF-Lite (contagem de cabeças).
+
+| Campo              | Tipo       | Descricao                              |
+|--------------------|------------|----------------------------------------|
+| LoteId             | `Guid`     | Lote                                   |
+| ImagemUrl          | `string`   | URL da imagem no S3                    |
+| BcsMedio           | `decimal?` | Body Condition Score 1–9 (Claude)      |
+| CabecasDetectadas  | `int?`     | Contagem TF-Lite                       |
+| ResumoIA           | `string?`  | Texto descritivo gerado                |
+| DataAnalise        | `DateTime` | Quando foi processada                  |
+
+### NegocioReportado (Mercado Colaborativo)
+
+Negociações reportadas pelos próprios produtores (crowdsourced) que alimentam o mapa de preços por UF e a referência de margem real.
+
+| Campo            | Tipo       | Descricao                              |
+|------------------|------------|----------------------------------------|
+| TenantId         | `Guid`     | Quem reportou                          |
+| DataNegocio      | `DateTime` | Data da venda                          |
+| UF               | `string`   | Estado (2 letras)                      |
+| Cidade           | `string`   | Cidade                                 |
+| QuantidadeAnimais| `int`      | Animais vendidos                       |
+| PrecoArroba      | `decimal`  | Preço/@ negociado (R$)                 |
+| Frigorifico      | `string?`  | Frigorífico/comprador                  |
+| Observacoes      | `string?`  | Detalhes (raça, peso médio, etc)       |
+
+### HedgeOperacao
+
+Operações de hedge (vendas de contratos BGI) registradas pelo usuário para acompanhamento de P&L.
+
+| Campo          | Tipo       | Descricao                              |
+|----------------|------------|----------------------------------------|
+| LoteId         | `Guid?`    | Lote associado (opcional)              |
+| DataOperacao   | `DateTime` | Data da venda do contrato              |
+| ContractCode   | `string`   | Contrato vendido (`BGIK26` etc)        |
+| Contratos      | `int`      | Quantos contratos vendidos             |
+| PrecoTrava     | `decimal`  | Preço de venda do contrato (R$/@)      |
+| Observacoes    | `string?`  | Estratégia, modo, etc                  |
+
+### ImportacaoExcel
+
+Histórico de importações de planilha (pesagens, animais, lotes históricos).
+
+| Campo       | Tipo       | Descricao                              |
+|-------------|------------|----------------------------------------|
+| TipoEntidade| `string`   | `Pesagem`, `Animal`, `LoteHistorico`   |
+| ArquivoNome | `string`   | Nome do arquivo enviado                |
+| Linhas      | `int`      | Linhas totais processadas              |
+| Sucesso     | `int`      | Linhas importadas com sucesso          |
+| Erros       | `int`      | Linhas que falharam                    |
+| LogJson     | `string?`  | Detalhamento dos erros (JSON)          |
+| UserId      | `Guid`     | Quem importou                          |
+| DataImportacao | `DateTime` | Quando                              |

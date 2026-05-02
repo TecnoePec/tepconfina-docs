@@ -8,13 +8,25 @@ O aplicativo mobile do TepConfina e desenvolvido com **Flutter 3**, priorizando 
 
 | Tecnologia                | Finalidade                                 |
 |:--------------------------|:-------------------------------------------|
-| Flutter 3                 | Framework multiplataforma (iOS + Android)  |
+| Flutter 3.38              | Framework multiplataforma (iOS + Android)  |
 | Riverpod                  | Gerenciamento de estado reativo            |
 | Hive                      | Banco de dados local (NoSQL, rapido)       |
 | Dio                       | Cliente HTTP com interceptors              |
 | GoRouter                  | Roteamento declarativo                     |
 | Firebase Cloud Messaging  | Notificacoes push                          |
+| Firebase Crashlytics      | Reporte automatico de crashes Android      |
 | Flutter Secure Storage    | Armazenamento seguro de tokens             |
+| TFLite Flutter            | Inferencia local do `cattle_detector.tflite` (43 MB, Git LFS) |
+| `mocktail` 1.0.4          | Mocks para `flutter_test`                  |
+
+**Destinos de produção:**
+
+- Package: `br.com.tecnoepec.tepconfina`
+- API: `--dart-define=ENV=production` aponta para `https://tepconfina-api.tecnoepec.com.br`
+- minSdk: 26 (Android 8.0+)
+- Distribuição: Firebase App Distribution (grupo `testers`) via CodePipeline; APK + AAB
+- Tema: `ThemeMode.system` (segue dark mode do dispositivo)
+- 33 telas no total
 
 ---
 
@@ -189,12 +201,16 @@ O aplicativo utiliza **Firebase Cloud Messaging (FCM)** para receber notificacoe
 - **Background**: Notificacao nativa do sistema operacional
 - **Terminated**: Notificacao nativa com deep link para a tela relevante
 
-| Tipo de Notificacao       | Exemplo                                    |
+| Tipo de Notificacao       | Origem                                     |
 |:--------------------------|:-------------------------------------------|
-| Alerta de peso            | "Animal #1234 perdeu peso na ultima pesagem" |
-| Lote para fechamento      | "Lote L-2026-001 atingiu a data prevista"  |
-| Cotacao de mercado        | "Arroba do boi gordo subiu 3.5% hoje"      |
-| Sincronizacao             | "5 registros sincronizados com sucesso"    |
+| GMD vermelho              | `ProactiveAlertService` (backend, hora em hora) |
+| Lote proximo da saida     | `ProactiveAlertService`                    |
+| Variacao brusca de preco  | `ProactiveAlertService` quando BGI varia >2% em 24h |
+| Estoque minimo            | `ProactiveAlertService`                    |
+| Mortalidade fora do padrao| `ProactiveAlertService`                    |
+| Alerta de preco do usuario| `AlertaPrecoService` quando o BGI atinge o valor configurado |
+| Digest matinal            | `DailyDigestService` (5:30 BRT) — resumo do dia anterior |
+| Sincronizacao             | Hive sync queue local                      |
 
 ---
 
@@ -232,6 +248,83 @@ O GoRouter fornece roteamento declarativo com suporte a deep links:
 /racoes                 → RacoesPage
 /notificacoes           → NotificacoesPage
 ```
+
+---
+
+## Modo Curral
+
+Tela otimizada para uso **dentro do curral** (luva, mão suja, tela ao sol). UI simplificada com 4 botões gigantes e suporte a comando de voz.
+
+| Botão | Ação |
+|-------|------|
+| 🐂 Pesagem | Câmera/teclado numérico para registrar peso individual (busca brinco por voz) |
+| 💀 Mortalidade | Registra morte com data atual e causa por dropdown |
+| 💉 Medicamento | Aplica medicamento a vários animais de uma vez (lê brincos por voz) |
+| ↩ Sair | Volta ao app normal |
+
+**Comando de voz** via Android STT (`speech_to_text`):
+
+- "pesar B001 quatrocentos e vinte" → registra B001 com 420 kg
+- "morte B042 pneumonia"
+- "vacina B055 B056 B057"
+
+Todas as ações entram na **sync queue Hive**, garantindo offline-first total.
+
+---
+
+## Conferência Visual (TF-Lite)
+
+Detecção de cabeças de gado a partir de foto do lote, executada **localmente** no dispositivo (sem latência de rede e sem custo por imagem).
+
+- **Modelo:** `assets/cattle_detector.tflite` (43 MB, gerenciado via **Git LFS** — `git lfs pull` necessário em CI)
+- **Service:** `cattle_detector_service.dart`
+- **Pipeline:** câmera → resize 320×320 → inferência TFLite → bounding boxes → contagem
+- **ProGuard:** regras específicas em `android/app/proguard-rules.pro` para não obfuscar classes do TFLite (CodeBuild quebra sem isso)
+
+A foto também é enviada para o backend para análise BCS via Claude Vision (assíncrono).
+
+---
+
+## Crashlytics e Boot Safety
+
+### Reporte automático
+
+Inicializado em `main.dart` antes do `runApp`. Crashes Android (uncaught exceptions, ANRs) caem em [console.firebase.google.com/project/tep-confina/crashlytics](https://console.firebase.google.com/project/tep-confina/crashlytics).
+
+### Boot defensivo
+
+`main.dart` envolve a inicialização de plugins críticos (Firebase, Hive, secure storage) em try/catch. Se algum falha, o app sobe em **modo degradado** com banner de erro em vez de tela branca:
+
+```dart
+try {
+  await Firebase.initializeApp();
+  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterError;
+} catch (e, stack) {
+  // App sobe sem Crashlytics — log local e segue
+  debugPrint('Firebase init failed: $e\n$stack');
+}
+```
+
+---
+
+## Build e Distribuição
+
+| Comando | Descrição |
+|---------|-----------|
+| `flutter run` | Dev local apontando para localhost |
+| `flutter build apk --dart-define=ENV=production` | APK para distribuição |
+| `flutter build appbundle --dart-define=ENV=production` | AAB para Play Store |
+| `flutter test` | 139 testes unitários |
+
+**Pipeline CodeBuild** (`buildspec.yml` no `tepconfina-mobile`):
+
+1. Instala Android SDK + Flutter
+2. Baixa `google-services.json` do Secrets Manager
+3. Decodifica keystore base64 do Secrets Manager (`development.TEPCONFINA_KEYSTORE`) para assinar release
+4. Roda testes (139 unit + 8 integration em device real quando disponível)
+5. Build APK + AAB com ProGuard
+6. Upload para Firebase App Distribution → grupo `testers`
 
 ---
 

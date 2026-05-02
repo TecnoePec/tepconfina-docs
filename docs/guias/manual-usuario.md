@@ -18,22 +18,19 @@
 9. [Produtores](#9-produtores)
 10. [Mercado e Preços](#10-mercado-e-preços)
 11. [Simulador de Hedge](#11-simulador-de-hedge)
-12. [Financeiro](#12-financeiro)
-13. [Relatórios](#13-relatórios)
-14. [Agente IA](#14-agente-ia)
-15. [Alertas de Preço](#15-alertas-de-preço)
-16. [Notificações](#16-notificações)
-17. [Usuários](#17-usuários)
-18. [Perfis e Permissões](#18-perfis-e-permissões)
-19. [Protocolo Sanitário](#19-protocolo-sanitário)
-20. [Importação via Excel](#20-importação-via-excel)
-21. [Auditoria](#21-auditoria)
-22. [Aplicativo Mobile](#22-aplicativo-mobile)
-23. [Perguntas Frequentes](#23-perguntas-frequentes)
-17. [Usuários](#17-usuários)
-18. [Perfis e Permissões](#18-perfis-e-permissões)
-19. [Aplicativo Mobile](#19-aplicativo-mobile)
-20. [Perguntas Frequentes](#20-perguntas-frequentes)
+12. [Previsão Inteligente de Venda](#12-previsão-inteligente-de-venda)
+13. [Financeiro](#13-financeiro)
+14. [Relatórios](#14-relatórios)
+15. [Agente IA](#15-agente-ia)
+16. [Alertas de Preço](#16-alertas-de-preço)
+17. [Notificações](#17-notificações)
+18. [Usuários](#18-usuários)
+19. [Perfis e Permissões](#19-perfis-e-permissões)
+20. [Aplicativo Mobile](#20-aplicativo-mobile)
+21. [Perguntas Frequentes](#21-perguntas-frequentes)
+22. [Protocolo Sanitário](#22-protocolo-sanitário)
+23. [Importação via Excel](#23-importação-via-excel)
+24. [Auditoria](#24-auditoria)
 
 ---
 
@@ -172,23 +169,50 @@ Em qualquer detalhe de lote, clique no botão **Exportar PDF** para gerar o rela
 
 ## 5. Animais
 
-Cadastro individual de animais dentro de um lote.
+Cadastro individual de animais. Todo animal é obrigatoriamente vinculado a um lote.
 
 ### Acessar
 
-- Via menu **Animais** (visão geral de todos os animais) ou
-- Via aba **Animais** dentro de um lote específico.
+- Menu **Animais** — lista global com filtros (Todos / Ativos / Mortos / Vendidos), busca por brinco/lote e botões de cadastro.
+- Detalhe do lote → aba **Animais** — visão por lote específico, mesmas ações.
 
-### Campos do Animal
+### Cadastrar animal individualmente
+
+1. Clique em **Novo Animal** (canto superior direito).
+2. Selecione o **Lote** ativo no dropdown.
+3. Informe **Brinco** (obrigatório), **Sexo** (Macho/Fêmea) e **Peso Entrada** (kg, opcional).
+4. Clique em **Adicionar**.
+
+### Cadastrar muitos animais de uma vez (em lote)
+
+1. Clique em **Cadastro em Lote** (botão cinza ao lado de "Novo Animal").
+2. Selecione o **Lote** ativo.
+3. Cole a lista de **brincos no textarea, um por linha**:
+   ```
+   B001
+   B002
+   B003
+   ```
+4. Clique em **Criar Animais**.
+5. O sistema mostra quantos foram criados e quais brincos foram **ignorados por duplicação** (já existiam no tenant).
+
+### Campos do animal
 
 | Campo | Descrição |
 |-------|-----------|
-| Identificação | Brinco / número do animal |
-| Sexo | M / F |
-| Raça | Raça do animal |
-| Data Nascimento | Para cálculo da idade |
+| Brinco | Identificação única do animal no tenant (obrigatório) |
+| Sexo | Macho / Fêmea |
 | Peso Entrada | Peso ao entrar no lote (kg) |
-| Lote | Lote vinculado |
+| Status | Ativo / Vendido / Morto |
+| Lote | Lote vinculado (obrigatório) |
+
+### Ações por animal
+
+Na linha de cada animal, ícones permitem:
+
+- 🛒 **Registrar Venda** (azul) — informa data, peso saída, valor/@, rendimento de carcaça e comprador.
+- 💀 **Registrar Mortalidade** (vermelho claro) — informa data e causa.
+- 🗑️ **Excluir** (vermelho) — remove o animal (soft delete).
 
 ---
 
@@ -269,53 +293,121 @@ Os produtores podem ser vinculados a lotes para rastreabilidade de propriedade.
 
 ## 10. Mercado e Preços
 
-Acompanhamento das cotações em tempo real.
+Acompanhamento da cotação do **Boi Gordo Futuro B3 (BGI)** em tempo real.
 
-### Cotações Disponíveis
+### Fonte dos dados
 
-| Indicador | Fonte |
-|-----------|-------|
-| Boi Gordo (CEPEA) | Scraper CEPEA — atualizado diariamente |
-| Futuro Boi Gordo (B3) | Scraper B3 — cotações do contrato atual |
-| Bezerro | CEPEA |
+| Indicador | Fonte | Notas |
+|-----------|-------|-------|
+| Boi Gordo Futuro (BGI1!) | **TradingView** via sidecar próprio | Contrato continuous front-month — preço real da arroba (~R$ 360) |
+| Médias 7d e 30d | Calculadas no backend a partir do BGI1! | Atualizam após acumular histórico |
+| Preço da arroba (override manual) | Você informa | Sobrescreve o BGI nos simuladores e na previsão de venda |
 
-### Funcionalidades da Página
+!!! note "Por que TradingView e não CEPEA?"
+    A coleta automatizada do CEPEA está bloqueada por proteção anti-bot. Enquanto não houver receita para contratar uma fonte paga (Cedro Technologies, ~R$ 440/mês), usamos o BGI futuro do TradingView, que reflete o mesmo movimento de preço com poucos minutos de defasagem.
 
-- **Gráfico Candlestick** — Visualização histórica do preço futuro B3.
-- **Card de Cotação Atual** — Preço spot e variação do dia.
-- **Tabela de Contratos Futuros** — Vencimentos disponíveis na B3.
-- **Atualização em tempo real** — Os preços são atualizados via WebSocket (SignalR) sem recarregar a página.
+### Layout da página Mercado
+
+1. **Cards de resumo** (topo): preço atual do BGI1!, média 7 dias, média 30 dias — todos em R$/@.
+2. **Painel "Ajustar preço da arroba"** (cinza, abaixo dos cards): campo opcional para você informar o preço praticado na sua região (CEPEA local, frigorífico, etc.). Se preenchido, **sobrescreve** o BGI nos cálculos do hedge e da previsão de venda. Deixe em branco para voltar a usar o BGI.
+3. **Gráfico Candlestick próprio** — candles diários OHLC do BGI1! (90 dias), renderizado a partir do nosso banco. Sem dependência de widget externo.
+4. **Simulador de Hedge**, **Decision Card**, **Hedge Ladder** e **Histórico de Hedge** (próxima seção).
+
+### Override manual do preço
+
+O override é salvo localmente no seu navegador (não é compartilhado entre usuários). Use quando:
+
+- O BGI futuro está descolado do preço físico que você consegue na sua região.
+- Você quer simular cenários com preços hipotéticos.
+- Quer travar a previsão de venda em um valor de referência.
+
+Para limpar, deixe o campo em branco e clique **Salvar override**.
 
 ---
 
 ## 11. Simulador de Hedge
 
-Ferramenta para simulação e análise de operações de hedge no mercado futuro da B3.
+Ferramentas para análise e operação de hedge no contrato BGI da B3. Todas estão na página **Mercado**, abaixo do gráfico.
 
-### Como Usar
+### 11.1. Simulador de Hedge — Boi Futuro B3
 
-1. Acesse **Simulador** no menu.
-2. Informe:
-   - Peso estimado de abate (arrobas)
-   - Preço de custo (R$/arroba)
-   - Margem desejada (%)
-   - Cotação futuro atual (preenchido automaticamente)
-3. O simulador calcula:
-   - **Preço mínimo de venda** para cobrir custos
-   - **Resultado com hedge** (travar preço no futuro)
-   - **Resultado sem hedge** (venda a mercado)
-   - **Recomendação** — O sistema sugere fazer ou não o hedge com base na análise.
+Calcula quantos contratos BGI vender para travar o preço de um lote.
 
-### Hedge Decision Card
+1. Selecione um **Lote ativo** no dropdown (preenche automaticamente cabeças e arrobas/cabeça com base no GMD atual) **ou** preencha manualmente.
+2. Ajuste:
+   - **Quantidade de animais**
+   - **Arrobas por cabeça (@)**
+   - **% do lote a travar** (slider 0–100%)
+   - **Modo de hedge**: Conservador (floor — menos contratos), Balanceado (round), Proteção Máxima (ceil)
+3. Clique em **Calcular Hedge**.
+4. O sistema retorna:
+   - **Arrobas totais** e **arrobas protegidas**
+   - **Contratos teóricos** (fração) e **contratos sugeridos** (inteiro, conforme modo)
+   - **Cobertura real** (% efetivo)
+   - **Exposição residual** (descoberto ou sobreprotegido)
+   - **Valor total protegido** (R$) — usa o preço da arroba atual (BGI ou override manual)
+   - **Recomendação operacional** em texto pleno
 
-O card de decisão exibe:
-- **Fazer Hedge** (verde) — Quando o preço futuro cobre custos + margem.
-- **Aguardar** (amarelo) — Quando a margem está abaixo do mínimo.
-- **Não Hedgear** (vermelho) — Quando o mercado está desfavorável.
+!!! tip "Padrão BGI"
+    Cada contrato BGI da B3 representa **330 arrobas**. O simulador já considera isso no cálculo.
+
+### 11.2. Momento Ideal de Trava (Decision Engine)
+
+Engine de decisão com **5 critérios ponderados** que retorna um score 0–100 e uma recomendação categórica.
+
+Informe:
+
+- **Preço alvo de trava (R$/@)** — onde você gostaria de travar
+- **Preço físico local (R$/@)** — preço praticado na sua região
+- **Custo total por arroba (R$/@)** — break-even
+- **Margem meta por arroba (R$/@)** — quanto quer ganhar acima do custo
+
+Pesos dos critérios:
+
+| Critério | Peso |
+|----------|------|
+| Preço (distância ao alvo) | 35% |
+| Margem (vs custo + meta) | 30% |
+| Base (físico vs futuro) | 15% |
+| Tendência (médias 7d vs 30d) | 10% |
+| Volatilidade (desvio padrão histórico) | 10% |
+
+Resultado:
+
+- **TRAVAR AGORA** (verde) — score ≥ 75
+- **TRAVAR PARCIAL** (laranja) — score 60–74
+- **ATENÇÃO** (azul) — score 40–59
+- **AGUARDAR** (cinza) — score < 40
+
+O card mostra também as barras de cada critério, base atual, distância ao alvo e tendência.
+
+### 11.3. Hedge Ladder
+
+Sugere uma **escada de travas** progressiva: ao invés de travar 100% num só preço, divide a operação em faixas (por exemplo: 25% em R$ 360, 25% em R$ 365, 25% em R$ 370, 25% em R$ 375). Reduz o risco de travar tudo no pior momento e aproveita movimentos favoráveis.
+
+A escada é gerada automaticamente a partir do **score do Decision Engine** e do preço atual.
+
+### 11.4. Histórico de Hedge
+
+Lista todas as operações de hedge **registradas pelo seu tenant** (contratos vendidos, datas, preços, P&L estimado vs preço atual). Permite registrar nova operação manualmente para acompanhamento.
 
 ---
 
-## 12. Financeiro
+## 12. Previsão Inteligente de Venda
+
+Card no Dashboard que mostra o resultado projetado de cada lote ativo se você vender hoje, considerando 3 cenários de preço:
+
+| Cenário | Preço usado |
+|---------|-------------|
+| Pessimista | −5% sobre o preço atual |
+| Realista | preço atual da arroba (BGI ou override manual) |
+| Otimista | +5% sobre o preço atual |
+
+Aparece automaticamente quando o preço da arroba está disponível (BGI ativo ou override manual) e o tenant tem lotes ativos.
+
+---
+
+## 13. Financeiro
 
 Visão financeira consolidada da operação.
 
@@ -343,7 +435,7 @@ Clique em **Exportar Excel** ou **Exportar PDF** para baixar o relatório financ
 
 ---
 
-## 13. Relatórios
+## 14. Relatórios
 
 Central de relatórios gerenciais.
 
@@ -367,7 +459,7 @@ Central de relatórios gerenciais.
 
 ---
 
-## 14. Agente IA
+## 15. Agente IA
 
 Assistente inteligente integrado ao ChatGPT/Claude para análise da operação.
 
@@ -385,7 +477,7 @@ Assistente inteligente integrado ao ChatGPT/Claude para análise da operação.
 
 ---
 
-## 15. Alertas de Preço
+## 16. Alertas de Preço
 
 Configure alertas automáticos para ser notificado quando o preço do boi gordo atingir determinados valores.
 
@@ -407,7 +499,7 @@ Quando o preço atingir o valor configurado:
 
 ---
 
-## 16. Notificações
+## 17. Notificações
 
 Central de todas as notificações do sistema.
 
@@ -424,7 +516,7 @@ Clique em uma notificação para ir diretamente ao item relacionado. Use **Marca
 
 ---
 
-## 17. Usuários
+## 18. Usuários
 
 Gerenciamento dos usuários da sua empresa. *(Disponível para perfil Admin)*
 
@@ -447,7 +539,7 @@ Para remover o acesso sem excluir o histórico, edite o usuário e mude o status
 
 ---
 
-## 18. Perfis e Permissões
+## 19. Perfis e Permissões
 
 | Perfil | Acesso |
 |--------|--------|
@@ -470,7 +562,7 @@ Para remover o acesso sem excluir o histórico, edite o usuário e mude o status
 
 ---
 
-## 19. Aplicativo Mobile
+## 20. Aplicativo Mobile
 
 O TepConfina possui aplicativo nativo para Android e iOS.
 
@@ -494,7 +586,7 @@ Use o mesmo e-mail e senha do sistema web. A sessão é mantida de forma segura 
 
 ---
 
-## 20. Perguntas Frequentes
+## 21. Perguntas Frequentes
 
 **Como altero minha senha?**
 Acesse **Usuários**, encontre seu usuário, clique em **Editar** e use o campo **Nova Senha**.
@@ -534,7 +626,7 @@ Entre em contato com o administrador da sua empresa (perfil Admin) para redefini
 
 ---
 
-## 19. Protocolo Sanitário
+## 22. Protocolo Sanitário
 
 O calendário sanitário permite agendar e rastrear vacinas, vermífugos, vitaminas e outros procedimentos veterinários por lote.
 
@@ -559,7 +651,7 @@ Protocolos com data vencida e não realizados são destacados em vermelho como a
 
 ---
 
-## 20. Importação via Excel
+## 23. Importação via Excel
 
 Permite importar pesagens em massa sem digitar linha a linha.
 
@@ -584,7 +676,7 @@ O sistema exibe quantas pesagens foram importadas e lista as linhas com erro (se
 
 ---
 
-## 21. Auditoria
+## 24. Auditoria
 
 O log de auditoria registra todas as ações de escrita realizadas no sistema (criação, edição e exclusão).
 

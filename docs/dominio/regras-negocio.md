@@ -56,16 +56,34 @@ RendimentoCarcaca = (PesoCarcaca / PesoVivo) * 100
 
 ## Ganho em Arrobas
 
-Calculo do ganho liquido em arrobas durante o periodo de confinamento:
+Calculo do ganho liquido em arrobas (de carcaca) produzido durante o confinamento. O rendimento de carcaca e aplicado sobre o **ganho de peso vivo** (não misturar carcaça de saída com peso vivo de entrada):
 
 ```
-GanhoArroba = (PesoSaida * RendimentoCarcaca/100 - PesoEntrada) / 15
+GanhoArroba = (PesoSaida - PesoEntrada) * RendimentoCarcaca/100 / 15
 ```
 
 !!! example "Exemplo"
-    Peso de saida: 540 kg, rendimento: 54%, peso de entrada: 360 kg.
-    Ganho = (540 * 0,54 - 360) / 15 = (291,6 - 360) / 15
-    Neste caso, considera-se o peso de carcaca na saida vs entrada.
+    Peso de saida: 540 kg, peso de entrada: 360 kg, rendimento: 54%.
+    Ganho = (540 - 360) * 0,54 / 15 = 180 * 0,54 / 15 = 97,2 / 15 = **6,48 @**
+
+!!! danger "Bug histórico corrigido (2026-07-28)"
+    A fórmula anterior era `(PesoSaida * rendimento/100 - PesoEntrada) / 15` — aplicava o rendimento **só na saída**, subtraindo peso de carcaça de saída de peso **vivo** de entrada. Isso dava ganho **negativo** em qualquer lote real (ex.: `(540*0,54 - 360)/15 = -4,56 @`), cascateando para margem/lucro negativos. Corrigido no `FecharLoteAsync`. Convenção alinhada ao `FinanceiroService`/`MercadoColaborativoService`.
+
+!!! note "Venda parcial"
+    Quando o lote é fechado por venda individual de animais (`AnimalStatus.Vendido`), o ganho usa apenas o `PesoEntrada` dos animais vendidos (não do lote inteiro), evitando subestimar o ganho.
+
+## Margem e Receita
+
+No abate vende-se a **carcaça inteira** (arrobas totais de saída), não apenas o ganho:
+
+```
+ArrobasTotaisSaida = PesoSaida * RendimentoCarcaca/100 / 15
+Receita            = ArrobasTotaisSaida * ValorArroba
+Margem             = Receita - CustoOperacional - CustoCompra
+```
+
+!!! warning "Fórmula corrigida (2026-07-28)"
+    A margem antes usava apenas `GanhoArroba * ValorArroba` como receita, mas descontava o custo de compra **total** — subestimando o lucro (margem negativa mesmo em lote bom). Passou a usar as **arrobas totais** de saída. Corrigido em `LoteService.MapToDetalheDto` e `FinanceiroService`. Caveat: `ValorArroba` é o preço de **compra** (não há campo de preço de venda no fechamento) — usado como proxy.
 
 ## GMD - Ganho Medio Diario
 

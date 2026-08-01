@@ -14,19 +14,24 @@ O aplicativo mobile do TepConfina e desenvolvido com **Flutter 3**, priorizando 
 | Dio                       | Cliente HTTP com interceptors              |
 | GoRouter                  | Roteamento declarativo                     |
 | Firebase Cloud Messaging  | Notificacoes push                          |
-| Firebase Crashlytics      | Reporte automatico de crashes Android      |
+| Firebase Crashlytics      | Reporte automatico de crashes (Android e iOS) |
 | Flutter Secure Storage    | Armazenamento seguro de tokens             |
 | TFLite Flutter            | Inferencia local do `cattle_detector.tflite` (43 MB, Git LFS) |
 | `mocktail` 1.0.4          | Mocks para `flutter_test`                  |
 
 **Destinos de produção:**
 
-- Package: `br.com.tecnoepec.tepconfina`
+- **Android** — `applicationId` / namespace `br.com.tecnoepec.tepconfina`, minSdk 26 (Android 8.0+). Distribuição: Firebase App Distribution (grupo `testers`) via CodePipeline; APK + AAB
+- **iOS** — bundle id `br.com.tecnoepec.tepconfina`, deployment target iOS 13. Plataforma adicionada em **2026-07-29** (antes o projeto era Android-only). Build e login validados no simulador iPhone 16. **Pendente:** pipeline CI iOS (o CodePipeline mobile hoje só builda Android) e conta Apple Developer para TestFlight/App Store
 - API: `--dart-define=ENV=production` aponta para `https://tepconfina-api.tecnoepec.com.br`
-- minSdk: 26 (Android 8.0+)
-- Distribuição: Firebase App Distribution (grupo `testers`) via CodePipeline; APK + AAB
 - Tema: `ThemeMode.system` (segue dark mode do dispositivo)
 - 33 telas no total
+
+!!! danger "Firebase é obrigatório no boot"
+    O app **depende do Firebase para iniciar** — `PushNotificationService` acessa `FirebaseMessaging.instance` na construção. Sem os arquivos de config o app não sobe: Android exige `android/app/google-services.json`, iOS exige `ios/Runner/GoogleService-Info.plist` (ambos versionados, projeto `tep-confina`). No iOS, sem o plist real dá tela vermelha `[core/no-app]`; com credenciais fake, `SIGABRT` nativo.
+
+!!! warning "MainActivity deve casar com o namespace (Android)"
+    A `MainActivity.kt` fica no pacote `br.com.tecnoepec.tepconfina` (igual ao `namespace` do `build.gradle.kts`). Se divergirem (ex.: classe no pacote default `com.example.*`), o manifest resolve `.MainActivity` para uma classe inexistente e o app **crasha no boot** (`ClassNotFoundException`) — bug que passou builds "Succeeded" no CI por ~4 meses (o crash só ocorre em runtime).
 
 ---
 
@@ -325,6 +330,12 @@ try {
 4. Roda testes (139 unit + 8 integration em device real quando disponível)
 5. Build APK + AAB com ProGuard
 6. Upload para Firebase App Distribution → grupo `testers`
+
+!!! note "iOS ainda não está no CI"
+    O `buildspec.yml` atual só builda Android (`flutter build apk`). Um pipeline iOS exige runner macOS + assinatura (Apple Developer). Até lá, o build iOS é feito localmente.
+
+!!! tip "Smoke test de boot pós-deploy (recomendado)"
+    O pipeline valida build/assinatura, mas **não** que o app inicia. Um crash de boot (ex.: MainActivity/namespace) passa como "Succeeded" e chega aos testers quebrado. Recomenda-se um passo pós-deploy que apenas **abre o app** (emulador/simulador) e confirma a tela de login.
 
 ---
 

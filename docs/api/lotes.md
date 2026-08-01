@@ -213,16 +213,21 @@ Fecha o lote, registrando peso de saida e rendimento de carcaca. Calcula os KPIs
 }
 ```
 
-**Resposta 200:**
+`pesoSaida` é o peso vivo **total** de saída do lote; `rendimentoCarcaca` é o percentual. O cálculo do `GanhoArroba` segue a [regra de negócio](../dominio/regras-negocio.md#ganho-em-arrobas).
+
+**Resposta:** `204 No Content` (o lote transiciona para `Fechado`).
+
+Os dados de resultado são obtidos em `GET /api/lotes/{id}`, cujo `LoteDetalheDto` passou a expor (desde 2026-07-28) os campos de saída:
 
 ```json
 {
   "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "status": "Fechado",
-  "pesoSaida": 520.0,
-  "rendimentoCarcaca": 54.5,
-  "gmdFinal": 1.52,
-  "diasConfinamento": 90
+  "dataSaida": "2026-07-28T00:00:00Z",
+  "quantidadeSaida": 100,
+  "pesoSaida": 52000.0,
+  "ganhoArroba": 576.0,
+  "kpis": { "rendimentoCarcaca": 54.0, "margem": 102960.0, "lucroPorMes": 31200.0 }
 }
 ```
 

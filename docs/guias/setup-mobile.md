@@ -52,21 +52,29 @@ flutter pub get
 
 ## Configuracao de Ambiente
 
-Copie o arquivo de exemplo:
+A URL da API **não** vem de um `.env` — é resolvida por `--dart-define=ENV` em `lib/core/utils/constants.dart`:
+
+| `ENV`        | baseUrl                                             |
+|--------------|-----------------------------------------------------|
+| (default/dev)| `http://10.0.2.2:5000/api` (Android) / `http://localhost:5000/api` (iOS) |
+| `production` | `https://tepconfina-api.tecnoepec.com.br/api`       |
 
 ```bash
-cp .env.example .env
-```
-
-Conteudo do `.env`:
-
-```env
-API_URL=http://10.0.2.2:5000
-APP_NAME=TepConfina
+flutter run                              # dev (localhost)
+flutter run --dart-define=ENV=production # produção
 ```
 
 !!! info "IP do emulador Android"
     O endereco `10.0.2.2` e o alias do `localhost` da maquina host no emulador Android. Para dispositivos fisicos, use o IP da rede local.
+
+## Configuracao do Firebase (obrigatoria)
+
+O app **depende do Firebase para iniciar**. Os arquivos de config sao versionados no repo (projeto `tep-confina`):
+
+- Android: `android/app/google-services.json`
+- iOS: `ios/Runner/GoogleService-Info.plist`
+
+Se precisar regenerar, registre o app no [Firebase console](https://console.firebase.google.com) com o bundle `br.com.tecnoepec.tepconfina`, ou rode `flutterfire configure --project=tep-confina`.
 
 ## Executando o Projeto
 
@@ -82,13 +90,18 @@ flutter run
 
 ### iOS (somente macOS)
 
+Plataforma iOS adicionada em 2026-07-29. `GoogleService-Info.plist` já vem no repo.
+
 ```bash
-# Instalar dependencias nativas
+# Instalar dependencias nativas (primeira vez / ao mudar deps nativas)
 cd ios && pod install && cd ..
 
-# Executar no simulador
-flutter run -d ios
+# Executar num simulador (ex.: iPhone 16)
+flutter run -d "iPhone 16" --dart-define=ENV=production
 ```
+
+!!! warning "Simulador iOS: só debug"
+    O simulador iOS suporta apenas modo **debug** — `--release`/`--profile` só funcionam em device fisico (que exige conta Apple Developer + assinatura).
 
 ### Modo de desenvolvimento
 

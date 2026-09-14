@@ -98,6 +98,7 @@ nav:
   - Dominio:
     - Entidades: dominio/entidades.md
     - Regras de Negocio: dominio/regras-negocio.md
+    - Credito de Carbono: dominio/credito-carbono.md
     - Glossario: dominio/glossario.md
   - Seguranca:
     - Autenticacao: seguranca/autenticacao.md
